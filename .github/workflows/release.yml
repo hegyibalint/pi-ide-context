@@ -19,13 +19,11 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: vscode/package-lock.json
-      - run: npm test
+      - run: npm test --prefix vscode
       - run: npm ci --prefix vscode --ignore-scripts
-      - name: Check manifest and tag versions
-        run: |
-          version=$(node -p 'require("./package.json").version')
-          test "$version" = "$(node -p 'require("./vscode/package.json").version')"
-          if [ "$GITHUB_REF_TYPE" = tag ]; then test "$GITHUB_REF_NAME" = "v$version"; fi
+      - name: Check tag against manifest version
+        if: github.ref_type == 'tag'
+        run: test "$GITHUB_REF_NAME" = "v$(node -p 'require(\"./vscode/package.json\").version')"
       - run: npm run package --prefix vscode
       - uses: actions/upload-artifact@v4
         with:

@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
-import { chmod, lstat } from 'node:fs/promises';
+import { lstat } from 'node:fs/promises';
 import { createConnection } from 'node:net';
 import { dirname } from 'node:path';
 import { test } from 'node:test';
-import { fetchSnapshot, startBridge } from '../protocol/index.js';
+import { startBridge } from '../src/protocol.js';
+
+const REQUEST = '{"version":1,"method":"snapshot"}\n';
+const fetchSnapshot = async (path) => JSON.parse(await request(path, [REQUEST])).context;
 
 function snapshot(path) {
   return { activeFile: { path, cursor: { line: 2, column: 3 }, selection: null }, openTabs: [path] };
@@ -38,22 +41,15 @@ test('two windows in the same folder use distinct sockets and only snapshot on d
   assert.equal(pulls, 2);
 });
 
-test('sockets are private and removed on close; missing and stale paths are unavailable', async (t) => {
+test('sockets are private and removed on close', async (t) => {
   const bridge = await startBridge(() => snapshot('/repo/file.js'));
   t.after(bridge.close);
   const directory = dirname(bridge.path);
   assert.equal((await lstat(directory)).mode & 0o777, 0o700);
   assert.equal((await lstat(bridge.path)).mode & 0o777, 0o600);
-  await chmod(bridge.path, 0o666);
-  await assert.rejects(fetchSnapshot(bridge.path), /not private/);
-  await chmod(bridge.path, 0o600);
-  await chmod(directory, 0o755);
-  await assert.rejects(fetchSnapshot(bridge.path), /not private/);
-  await chmod(directory, 0o700);
-  await assert.rejects(fetchSnapshot(undefined), /PI_VSCODE_SOCKET/);
   await bridge.close();
   await assert.rejects(lstat(directory), { code: 'ENOENT' });
-  await assert.rejects(fetchSnapshot(bridge.path), { code: 'ENOENT' });
+  await assert.rejects(lstat(bridge.path), { code: 'ENOENT' });
 });
 
 test('fragmented requests work; invalid, oversized, and incompatible requests do not invoke the snapshot', async (t) => {
@@ -73,6 +69,7 @@ test('invalid snapshots fail closed', async (t) => {
   const errors = [];
   const bridge = await startBridge(() => ({ activeFile: null, openTabs: ['relative.js'] }), (error) => errors.push(error));
   t.after(bridge.close);
-  await assert.rejects(fetchSnapshot(bridge.path), /Invalid or incompatible/);
+  const reply = JSON.parse(await request(bridge.path, [REQUEST]));
+  assert.match(reply.error, /Could not read editor context/);
   assert.match(errors[0].message, /Invalid editor snapshot/);
 });

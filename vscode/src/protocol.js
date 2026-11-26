@@ -1,6 +1,6 @@
-import { lstat, mkdtemp, chmod, rmdir } from 'node:fs/promises';
-import { createConnection, createServer } from 'node:net';
-import { isAbsolute, dirname, join } from 'node:path';
+import { mkdtemp, chmod, rmdir } from 'node:fs/promises';
+import { createServer } from 'node:net';
+import { isAbsolute, join } from 'node:path';
 
 export const SOCKET_ENV = 'PI_VSCODE_SOCKET';
 export const PROTOCOL_VERSION = 1;
@@ -9,7 +9,6 @@ export const MAX_PATH_CHARS = 2048;
 export const MAX_SELECTION_CHARS = 4000;
 const MAX_REQUEST_BYTES = 256;
 const MAX_RESPONSE_BYTES = 384 * 1024;
-const REQUEST = { version: PROTOCOL_VERSION, method: 'snapshot' };
 
 function encode(value) {
   return JSON.stringify(value) + '\n';
@@ -77,7 +76,7 @@ export async function startBridge(snapshot, onError = () => {}) {
       connections.delete(socket);
     });
     readFrame(socket, MAX_REQUEST_BYTES, (request) => {
-      if (request?.version !== PROTOCOL_VERSION || request.method !== REQUEST.method) {
+      if (request?.version !== PROTOCOL_VERSION || request.method !== 'snapshot') {
         socket.end(encode({ version: PROTOCOL_VERSION, error: 'Unsupported request' }));
         return;
       }
@@ -117,38 +116,4 @@ export async function startBridge(snapshot, onError = () => {}) {
     await close();
     throw error;
   }
-}
-
-export async function fetchSnapshot(path, timeoutMs = 200) {
-  if (!path) throw new Error(`${SOCKET_ENV} is not set. Open a new VS Code integrated terminal.`);
-  const uid = process.getuid?.();
-  if (uid === undefined || !isLocalFilePath(path)) throw new Error('Invalid socket path');
-  const directory = await lstat(dirname(path));
-  if (!directory.isDirectory() || directory.uid !== uid || (directory.mode & 0o077) !== 0) {
-    throw new Error('Socket directory is not private to the current user');
-  }
-  const entry = await lstat(path);
-  if (!entry.isSocket() || entry.uid !== uid || (entry.mode & 0o077) !== 0) {
-    throw new Error('Socket is not private to the current user');
-  }
-  return new Promise((resolve, reject) => {
-    const socket = createConnection(path);
-    function finish(error, context) {
-      clearTimeout(deadline);
-      socket.destroy();
-      if (error) reject(error);
-      else resolve(context);
-    }
-    const deadline = setTimeout(() => finish(new Error('Timed out waiting for VS Code')), timeoutMs);
-    socket.once('error', (error) => finish(error));
-    socket.once('close', () => finish(new Error('VS Code closed the connection without a snapshot')));
-    socket.once('connect', () => socket.write(encode(REQUEST)));
-    readFrame(socket, MAX_RESPONSE_BYTES, (response) => {
-      if (response?.version !== PROTOCOL_VERSION || !isSnapshot(response.context)) {
-        finish(new Error('Invalid or incompatible VS Code response'));
-      } else {
-        finish(undefined, response.context);
-      }
-    }, () => finish(new Error('Invalid VS Code response frame')));
-  });
 }

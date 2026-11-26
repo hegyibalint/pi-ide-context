@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { editorSnapshot } from '../vscode/src/snapshot.js';
+import { editorSnapshot } from '../src/snapshot.js';
 
 const at = (character) => ({ line: 0, character });
 const uri = (fsPath, scheme = 'file') => ({ fsPath, scheme });

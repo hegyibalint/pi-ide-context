@@ -1,4 +1,4 @@
-import { isLocalFilePath, MAX_SELECTION_CHARS, MAX_TABS } from '../../protocol/index.js';
+import { isLocalFilePath, MAX_SELECTION_CHARS, MAX_TABS } from './protocol.js';
 
 function filePath(uri) {
   return uri?.scheme === 'file' && isLocalFilePath(uri.fsPath) ? uri.fsPath : undefined;

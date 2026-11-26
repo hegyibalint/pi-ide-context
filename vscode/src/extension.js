@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { SOCKET_ENV, startBridge } from '../../protocol/index.js';
+import { SOCKET_ENV, startBridge } from './protocol.js';
 import { editorSnapshot } from './snapshot.js';
 
 let bridge;
