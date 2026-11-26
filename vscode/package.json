@@ -2,7 +2,7 @@
   "name": "pi-ide-context",
   "displayName": "Pi IDE Context",
   "description": "Share editor context with Pi in this VS Code window's integrated terminal.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "publisher": "hegyibalint",
   "license": "MIT",
