@@ -1,0 +1,44 @@
+{
+  "name": "pi-ide-context",
+  "displayName": "Pi IDE Context",
+  "description": "Share editor context with Pi in this VS Code window's integrated terminal.",
+  "version": "0.1.0",
+  "type": "module",
+  "publisher": "hegyibalint",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/hegyibalint/pi-ide-context.git" },
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Other"],
+  "extensionKind": ["workspace"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.cjs",
+  "capabilities": {
+    "virtualWorkspaces": { "supported": false },
+    "untrustedWorkspaces": { "supported": false }
+  },
+  "contributes": {
+    "commands": [
+      { "command": "piIdeContext.openTerminal", "title": "Pi IDE Context: Open Integrated Terminal" }
+    ],
+    "configuration": {
+      "title": "Pi IDE Context",
+      "properties": {
+        "piIdeContext.shareSelectedText": {
+          "type": "boolean",
+          "default": false,
+          "scope": "application",
+          "description": "Share a bounded excerpt of the primary selection from saved, unmodified files. Pi may send it to the model provider and store it in the session."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "esbuild src/extension.js --bundle --platform=node --target=node20 --format=cjs --external:vscode --outfile=dist/extension.cjs",
+    "vscode:prepublish": "npm run build && cp ../README.md ../LICENSE .",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.28.0"
+  }
+}

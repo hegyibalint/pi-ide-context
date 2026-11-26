@@ -1,0 +1,49 @@
+name: Test and package
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: vscode/package-lock.json
+      - run: npm test
+      - run: npm ci --prefix vscode --ignore-scripts
+      - name: Check manifest and tag versions
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          test "$version" = "$(node -p 'require("./vscode/package.json").version')"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then test "$GITHUB_REF_NAME" = "v$version"; fi
+      - run: npm run package --prefix vscode
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pi-ide-context-vsix
+          path: vscode/*.vsix
+          if-no-files-found: error
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pi-ide-context-vsix
+      - run: gh release create "$GITHUB_REF_NAME" ./*.vsix --verify-tag --title "Pi IDE Context $GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
